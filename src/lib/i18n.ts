@@ -114,12 +114,44 @@ export interface Messages {
   msgHydrationOptimal: string // {ml}
   msgHydration: string        // {ml} {total} {rem}
   msgMetabolicSluggishness: string
+  // V1.8: Weekly Tactical Report
+  reportTitle: string
+  reportThisWeek: string
+  reportLastWeek: string
+  reportAvg: string
+  reportImproving: string   // {pct}
+  reportDeclining: string   // {pct}
+  reportStable: string
+  reportCalBar: string
+  reportHydBar: string
+  reportSleepBar: string
+  reportDismiss: string
+  reportBtn: string
+  // V1.8: Archive Panel
+  archiveTitle: string
+  archiveBtn: string
+  archiveToday: string
+  archiveLive: string
+  archiveNoData: string
+  // V1.9: Environmental Engine
+  envTempLabel: string
+  envTempUnit: string
+  // V1.9: Tactical Macros
+  macroTitle: string
+  macroAdd: string
+  macroNamePlaceholder: string
+  macroKcalPlaceholder: string
+  macroSave: string
+  macroEmpty: string
+  // V1.9: Monthly Heatmap
+  heatmapTitle: string
+  heatmapNoData: string
 }
 
 // ─── Dictionaries ─────────────────────────────────────────────────────────────
 export const translations: Record<Locale, Messages> = {
   en: {
-    subtitle:        'Executive Command Center · V1.7',
+    subtitle:        'Executive Command Center · V1.9',
     liveMode:        'LIVE',
     ghostToggle:     'GHOST',
     missionPrefix:   'MISSION:',
@@ -237,10 +269,42 @@ export const translations: Record<Locale, Messages> = {
     msgHydrationOptimal:   '> HYDRATION_OPTIMAL [{ml} ml]  Daily target achieved.',
     msgHydration:          '> HYDRATION [{ml} / {total} ml]  {rem} ml remaining.',
     msgMetabolicSluggishness: '> METABOLIC_SLUGGISHNESS  Bowel movement not logged. Increase fiber and water.',
+    // V1.8: Weekly Tactical Report
+    reportTitle:       'Weekly Tactical Report',
+    reportThisWeek:    'THIS WEEK',
+    reportLastWeek:    'LAST WEEK',
+    reportAvg:         'AVG SYS_EFF',
+    reportImproving:   '> STATUS: IMPROVING. CONSISTENCY UP BY {pct}%.',
+    reportDeclining:   '> STATUS: DECLINING. EFFICIENCY DOWN BY {pct}%.',
+    reportStable:      '> STATUS: STABLE. MAINTAIN CURRENT PROTOCOL.',
+    reportCalBar:      'Calories',
+    reportHydBar:      'Hydration',
+    reportSleepBar:    'Sleep',
+    reportDismiss:     'DISMISS',
+    reportBtn:         'REPORT',
+    // V1.8: Archive Panel
+    archiveTitle:      'The Archive',
+    archiveBtn:        'ARCHIVE',
+    archiveToday:      'TODAY',
+    archiveLive:       '\u27F3 BACK TO LIVE',
+    archiveNoData:     'NO DATA',
+    // V1.9: Environmental Engine
+    envTempLabel:      'ENV_TEMP',
+    envTempUnit:       '\u00B0C',
+    // V1.9: Tactical Macros
+    macroTitle:        'MACROS',
+    macroAdd:          '+ MACRO',
+    macroNamePlaceholder: 'Name',
+    macroKcalPlaceholder: 'kcal',
+    macroSave:         'SAVE',
+    macroEmpty:        'No macros saved. Tap + to create one.',
+    // V1.9: Monthly Heatmap
+    heatmapTitle:      '30-Day Heatmap',
+    heatmapNoData:     'N/A',
   },
 
   cn: {
-    subtitle:        '执行指挥中心 · V1.7',
+    subtitle:        '执行指挥中心 · V1.9',
     liveMode:        '实时',
     ghostToggle:     '昨日',
     missionPrefix:   '当前任务:',
@@ -358,6 +422,38 @@ export const translations: Record<Locale, Messages> = {
     msgHydrationOptimal:   '> HYDRATION_OPTIMAL [{ml} ml]  每日目标已达成。',
     msgHydration:          '> HYDRATION [{ml} / {total} ml]  还需 {rem} ml。',
     msgMetabolicSluggishness: '> METABOLIC_SLUGGISHNESS  未记录排便。请增加膳食纤维和水分摄入。',
+    // V1.8: Weekly Tactical Report
+    reportTitle:       '周度战报总结',
+    reportThisWeek:    '本周',
+    reportLastWeek:    '上周',
+    reportAvg:         '平均系统效率',
+    reportImproving:   '> STATUS: 效率提升，稳定性提高 {pct}%。',
+    reportDeclining:   '> STATUS: 效率下降，下降幅度 {pct}%。',
+    reportStable:      '> STATUS: 状态稳定，维持当前执行方案。',
+    reportCalBar:      '热量',
+    reportHydBar:      '水分',
+    reportSleepBar:    '睡眠',
+    reportDismiss:     '关闭',
+    reportBtn:         '战报',
+    // V1.8: Archive Panel
+    archiveTitle:      '历史归档',
+    archiveBtn:        '归档',
+    archiveToday:      '今日',
+    archiveLive:       '\u27F3 返回实时',
+    archiveNoData:     '无数据',
+    // V1.9: Environmental Engine
+    envTempLabel:      '环境温度',
+    envTempUnit:       '\u00B0C',
+    // V1.9: Tactical Macros
+    macroTitle:        '快捷组合',
+    macroAdd:          '+ 新增',
+    macroNamePlaceholder: '名称',
+    macroKcalPlaceholder: '热量',
+    macroSave:         '保存',
+    macroEmpty:        '暂无快捷组合，点击 + 创建。',
+    // V1.9: Monthly Heatmap
+    heatmapTitle:      '30天热力图',
+    heatmapNoData:     '无',
   },
 }
 

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add src/app/globals.css src/components/dashboard/ExecutiveDashboard.tsx src/lib/i18n.ts)",
+      "Bash(git commit:*)",
+      "Bash(git push origin main)",
+      "Bash(npx next build)",
+      "Bash(npm install html-to-image)",
+      "Bash(git add package.json package-lock.json src/app/globals.css src/components/dashboard/ExecutiveDashboard.tsx src/components/profile/ProfileSetup.tsx src/lib/i18n.ts src/lib/local-store.ts src/lib/data-sync.ts supabase/migrations/001_create_tables.sql)",
+      "Bash(git add src/app/globals.css src/components/dashboard/ExecutiveDashboard.tsx src/components/profile/ProfileSetup.tsx src/lib/data-sync.ts src/lib/health-engine.ts src/lib/i18n.ts src/lib/food-db.ts)",
+      "Bash(git add src/app/globals.css src/components/dashboard/ExecutiveDashboard.tsx src/lib/data-sync.ts src/lib/health-engine.ts src/lib/i18n.ts)",
+      "Bash(git add src/app/globals.css src/components/dashboard/ExecutiveDashboard.tsx src/lib/i18n.ts src/lib/local-store.ts)",
+      "Bash(git push)",
+      "Bash(xargs grep -l \"Transition\\\\|transition\\\\|motion\")",
+      "Bash(npm run build)"
+    ]
+  }
+}

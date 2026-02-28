@@ -84,3 +84,32 @@ export function bumpFoodFrequency(foodId: string): Record<string, number> {
   localStorage.setItem(FOOD_FREQ_KEY, JSON.stringify(freq))
   return freq
 }
+
+// ─── Tactical Macros (V1.9) ─────────────────────────────────────────────────
+const MACROS_KEY = 'nexus_macros'
+
+export interface TacticalMacro {
+  id: string
+  name: string
+  kcal: number
+}
+
+export function loadMacros(): TacticalMacro[] {
+  if (typeof window === 'undefined') return []
+  const raw = localStorage.getItem(MACROS_KEY)
+  if (!raw) return []
+  try { return JSON.parse(raw) as TacticalMacro[] } catch { return [] }
+}
+
+export function saveMacro(macro: TacticalMacro): TacticalMacro[] {
+  const macros = loadMacros()
+  macros.push(macro)
+  localStorage.setItem(MACROS_KEY, JSON.stringify(macros))
+  return macros
+}
+
+export function deleteMacro(id: string): TacticalMacro[] {
+  const macros = loadMacros().filter(m => m.id !== id)
+  localStorage.setItem(MACROS_KEY, JSON.stringify(macros))
+  return macros
+}

@@ -1,8 +1,57 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEXUS HEALTH — HIGH-END TACTICAL HUD DESIGN SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ── HUD Core Palette ── */
+  --nx-void:       #030608;
+  --nx-deep:       #050508;
+  --nx-panel:      rgba(8, 12, 20, 0.72);
+  --nx-panel-solid:#0a0d14;
+  --nx-surface:    rgba(14, 20, 32, 0.55);
+
+  /* ── Accent Spectrum ── */
+  --nx-green:      #39ff14;
+  --nx-cyan:       #00d4ff;
+  --nx-purple:     #bf80ff;
+  --nx-water:      #38bdf8;
+  --nx-amber:      #fbbf24;
+  --nx-red:        #f87171;
+  --nx-orange:     #fb923c;
+
+  /* ── Glassmorphism Tokens ── */
+  --nx-glass-blur:      20px;
+  --nx-glass-saturate:  1.4;
+  --nx-glass-border:    rgba(57, 255, 20, 0.08);
+  --nx-glass-highlight: rgba(57, 255, 20, 0.03);
+
+  /* ── Depth Shadows (layered) ── */
+  --nx-shadow-sm:
+    0 1px 2px rgba(0,0,0,0.4),
+    0 0 1px rgba(57,255,20,0.05);
+  --nx-shadow-md:
+    0 4px 12px rgba(0,0,0,0.5),
+    0 1px 3px rgba(0,0,0,0.3),
+    0 0 1px rgba(57,255,20,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+  --nx-shadow-lg:
+    0 8px 32px rgba(0,0,0,0.6),
+    0 2px 8px rgba(0,0,0,0.4),
+    0 0 1px rgba(57,255,20,0.1),
+    inset 0 1px 0 rgba(255,255,255,0.03);
+  --nx-shadow-glow:
+    0 0 20px rgba(57,255,20,0.08),
+    0 0 60px rgba(57,255,20,0.04);
+
+  /* ── Motion Curves ── */
+  --nx-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --nx-ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --nx-ease-smooth:cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 @theme inline {
@@ -14,18 +63,188 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #030608;
     --foreground: #ededed;
   }
 }
 
 body {
-  background: var(--background);
+  background: var(--nx-deep);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Nexus Health: Glitch animation for ALERT-level status rows ── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASSMORPHISM PANELS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-glass {
+  background: var(--nx-panel);
+  backdrop-filter: blur(var(--nx-glass-blur)) saturate(var(--nx-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur)) saturate(var(--nx-glass-saturate));
+  border: 0.5px solid var(--nx-glass-border);
+  box-shadow: var(--nx-shadow-md);
+  position: relative;
+}
+
+/* Top-edge highlight for depth illusion */
+.nx-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0.5px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.06) 0%,
+    rgba(255,255,255,0.01) 30%,
+    transparent 100%
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+.nx-glass-strong {
+  background: rgba(8, 12, 20, 0.85);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border: 0.5px solid rgba(57,255,20,0.12);
+  box-shadow: var(--nx-shadow-lg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HUD BUTTON SYSTEM — Haptic-ready with depth
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-btn {
+  position: relative;
+  border: 0.5px solid rgba(57,255,20,0.2);
+  background: rgba(57,255,20,0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.03);
+  transition:
+    transform 0.15s var(--nx-spring),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.nx-btn:hover {
+  transform: translateY(-1px) scale(1.02);
+  border-color: rgba(57,255,20,0.35);
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.4),
+    0 0 16px rgba(57,255,20,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.nx-btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.06s;
+  box-shadow:
+    0 0 2px rgba(0,0,0,0.5),
+    inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARALLAX DEPTH BACKGROUND
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-parallax-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.nx-parallax-bg::before {
+  content: '';
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  background:
+    radial-gradient(ellipse 600px 400px at 30% 20%, rgba(57,255,20,0.03) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 500px at 70% 80%, rgba(0,212,255,0.02) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 50%, rgba(191,128,255,0.015) 0%, transparent 70%);
+  transition: transform 0.3s var(--nx-ease-smooth);
+  will-change: transform;
+}
+
+/* Grid overlay for tactical feel */
+.nx-parallax-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(57,255,20,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57,255,20,0.012) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 70%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RING SPRING PHYSICS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-ring-track {
+  transition: stroke-dashoffset 0.8s var(--nx-spring);
+  filter: drop-shadow(0 0 8px var(--ring-color, #39ff14));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COUNTER ANIMATION (CSS @property)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@property --nx-counter {
+  syntax: "<integer>";
+  initial-value: 0;
+  inherits: false;
+}
+
+.nx-counter {
+  transition: --nx-counter 0.6s var(--nx-ease-out);
+  counter-reset: nx-val var(--nx-counter);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROGRESS BAR SPRING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-bar-fill {
+  transition: width 0.7s var(--nx-spring);
+  position: relative;
+}
+
+.nx-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));
+  border-radius: inherit;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXISTING ANIMATIONS (upgraded)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Glitch animation for ALERT-level status rows ── */
 @keyframes nexus-glitch {
   0%, 85%, 100% {
     opacity: 1;
@@ -67,22 +286,22 @@ body {
   animation: nexus-glitch 4s infinite;
 }
 
-/* ── Ring pulse: fires when a major log action is triggered ── */
+/* ── Ring pulse: fires on major log action ── */
 @keyframes ring-pulse {
   0%   { filter: none; transform: scale(1); }
-  20%  { filter: drop-shadow(0 0 40px #39ff14) brightness(1.4); transform: scale(1.03); }
+  20%  { filter: drop-shadow(0 0 40px #39ff14) brightness(1.4); transform: scale(1.04); }
   50%  { filter: drop-shadow(0 0 20px #39ff14) brightness(1.15); transform: scale(1.01); }
   100% { filter: none; transform: scale(1); }
 }
-.ring-pulse { animation: ring-pulse 0.75s cubic-bezier(0.22, 1, 0.36, 1); }
+.ring-pulse { animation: ring-pulse 0.75s var(--nx-spring); }
 
-/* ── Time-travel slider: cockpit chrome styling ── */
+/* ── Time-travel slider ── */
 .cockpit-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  background: #1a2a1a;
+  height: 3px;
+  background: linear-gradient(90deg, #0a1a0a, #1a2a1a);
   border-radius: 2px;
   outline: none;
 }
@@ -92,19 +311,23 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #39ff14;
-  box-shadow: 0 0 8px #39ff14, 0 0 16px #39ff1455;
+  background: radial-gradient(circle at 40% 35%, #6fff52, #39ff14);
+  box-shadow: 0 0 10px #39ff14, 0 0 20px #39ff1455, 0 0 4px #000;
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, transform 0.15s var(--nx-spring);
 }
 .cockpit-slider::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 12px #39ff14, 0 0 24px #39ff14aa;
+  box-shadow: 0 0 14px #39ff14, 0 0 28px #39ff14aa, 0 0 4px #000;
+  transform: scale(1.15);
+}
+.cockpit-slider::-webkit-slider-thumb:active {
+  transform: scale(0.95);
 }
 .cockpit-slider::-moz-range-thumb {
   width: 16px; height: 16px;
   border-radius: 50%; border: none;
   background: #39ff14;
-  box-shadow: 0 0 8px #39ff14;
+  box-shadow: 0 0 10px #39ff14;
   cursor: pointer;
 }
 
@@ -126,13 +349,25 @@ body {
   animation: share-shimmer 1.5s ease-in-out infinite;
 }
 
-/* ── Breathing red glow for CRITICAL mission state (V1.7) ── */
+/* ── Breathing red glow for CRITICAL mission state ── */
 @keyframes critical-glow {
   0%, 100% { text-shadow: 0 0 6px #f87171, 0 0 12px #f8717155; }
   50%      { text-shadow: 0 0 14px #f87171, 0 0 28px #f87171aa, 0 0 40px #f8717144; }
 }
 .nexus-critical-glow {
   animation: critical-glow 1.5s ease-in-out infinite;
+}
+
+/* ── Critical alert staccato flash ── */
+@keyframes critical-alert-flash {
+  0%, 100% { opacity: 1; }
+  10% { opacity: 0.3; }
+  20% { opacity: 1; }
+  30% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+.nexus-critical-flash {
+  animation: critical-alert-flash 0.4s ease-in-out;
 }
 
 /* ── News ticker marquee scroll ── */
@@ -149,7 +384,76 @@ body {
   animation-play-state: paused;
 }
 
-/* ── Tactical scanline overlay ── */
+/* ── Stability Meter pulse when > 90% ── */
+@keyframes stability-pulse {
+  0%, 100% { filter: none; transform: scale(1); }
+  50%      { filter: drop-shadow(0 0 16px #39ff14) brightness(1.15); transform: scale(1.02); }
+}
+.stability-pulse {
+  animation: stability-pulse 2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEW: PANEL ENTRANCE ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes nx-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.nx-enter {
+  animation: nx-fade-up 0.5s var(--nx-ease-out) both;
+}
+
+/* Stagger children: panels use nth-child delay */
+.nx-stagger > :nth-child(1) { animation-delay: 0.05s; }
+.nx-stagger > :nth-child(2) { animation-delay: 0.1s; }
+.nx-stagger > :nth-child(3) { animation-delay: 0.15s; }
+.nx-stagger > :nth-child(4) { animation-delay: 0.2s; }
+.nx-stagger > :nth-child(5) { animation-delay: 0.25s; }
+.nx-stagger > :nth-child(6) { animation-delay: 0.3s; }
+.nx-stagger > :nth-child(7) { animation-delay: 0.35s; }
+.nx-stagger > :nth-child(8) { animation-delay: 0.4s; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEW: HEATMAP CELLS — Refined with glow
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-heat-cell {
+  border-radius: 4px;
+  transition: transform 0.15s var(--nx-spring), box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.nx-heat-cell:hover {
+  transform: scale(1.2);
+  z-index: 2;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEW: SPARKLINE REFINED
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.nx-sparkline .recharts-line {
+  filter: drop-shadow(0 0 3px #39ff14);
+}
+
+.nx-sparkline .recharts-dot {
+  transition: r 0.2s var(--nx-spring);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TACTICAL SCANLINE OVERLAY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .nexus-scanline::after {
   content: '';
   position: fixed;
@@ -160,8 +464,66 @@ body {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
+    rgba(0, 0, 0, 0.025) 2px,
+    rgba(0, 0, 0, 0.025) 4px
   );
   mix-blend-mode: multiply;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR STYLING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(57,255,20,0.15);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(57,255,20,0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE OPTIMIZATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  :root {
+    --nx-glass-blur: 14px;
+  }
+
+  /* Larger touch targets */
+  .nx-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Reduce heavy shadows on mobile for performance */
+  .nx-glass {
+    box-shadow: var(--nx-shadow-sm);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECTION & FOCUS STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+::selection {
+  background: rgba(57,255,20,0.2);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 1.5px solid rgba(57,255,20,0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
 }

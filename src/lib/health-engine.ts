@@ -2,7 +2,35 @@
 // BMR: Mifflin-St Jeor equation
 // TDEE: BMR × activity multiplier
 
-export const WATER_TARGET_ML = 2000  // daily hydration target (ml)
+export const WATER_TARGET_ML = 2000  // base daily hydration target (ml)
+
+/** Dynamic water target based on exercise output and temperature (V1.8). */
+export function calculateWaterTarget(exerciseMinutes: number, tempC?: number): number {
+  let target = WATER_TARGET_ML
+  target += Math.round((exerciseMinutes / 30) * 250)
+  if (tempC !== undefined && tempC > 30) target += 500
+  return target
+}
+
+// ─── Environmental Weather Service (V1.9) ──────────────────────────────────
+// Mock weather: randomises between 20°C–35°C, refreshes every 60 s.
+
+let _cachedTemp: number | null = null
+let _cacheTs = 0
+const WEATHER_TTL = 60_000 // 60 s
+
+export function getCurrentTemp(): number {
+  const now = Date.now()
+  if (_cachedTemp !== null && now - _cacheTs < WEATHER_TTL) return _cachedTemp
+  _cachedTemp = Math.round(20 + Math.random() * 15) // 20–35 °C
+  _cacheTs = now
+  return _cachedTemp
+}
+
+/** Weather icon helper: sun if >= 30 °C, cloud otherwise. */
+export function getWeatherIcon(tempC: number): 'sun' | 'cloud' {
+  return tempC >= 30 ? 'sun' : 'cloud'
+}
 
 export type Gender = 'male' | 'female'
 export type Goal = 'loss' | 'gain' | 'maintain'
@@ -76,7 +104,7 @@ export interface DaySnapshot {
 }
 
 /** Score a single day (0–100). Exported for per-day sparkline use. */
-export function calculateDayScore(day: DaySnapshot, targetCalories: number): number {
+export function calculateDayScore(day: DaySnapshot, targetCalories: number, waterTarget: number = WATER_TARGET_ML): number {
   let s = 0
   const net = day.caloriesIn - day.caloriesOut
   const diff = Math.abs(targetCalories - net)
@@ -86,11 +114,11 @@ export function calculateDayScore(day: DaySnapshot, targetCalories: number): num
   else if (diff <= 300) s += 30
   else if (diff <= 500) s += 15
 
-  // Hydration (20 pts max)
-  if (day.waterMl >= WATER_TARGET_ML)      s += 20
-  else if (day.waterMl >= 1500)            s += 12
-  else if (day.waterMl >= 1000)            s += 5
-  else                                     s -= 5  // dehydration penalty
+  // Hydration (20 pts max) — uses dynamic waterTarget (V1.8)
+  if (day.waterMl >= waterTarget)                     s += 20
+  else if (day.waterMl >= Math.round(waterTarget * 0.75)) s += 12
+  else if (day.waterMl >= Math.round(waterTarget * 0.5))  s += 5
+  else                                                     s -= 5  // dehydration penalty
 
   // Exercise (20 pts max)
   if (day.exerciseMinutes >= 30)           s += 20
@@ -107,8 +135,9 @@ export function calculateDayScore(day: DaySnapshot, targetCalories: number): num
 export function calculateExecutionScore(
   days: DaySnapshot[],
   targetCalories: number,
+  waterTarget: number = WATER_TARGET_ML,
 ): number {
   if (days.length === 0) return 0
-  const total = days.reduce((sum, d) => sum + calculateDayScore(d, targetCalories), 0)
+  const total = days.reduce((sum, d) => sum + calculateDayScore(d, targetCalories, waterTarget), 0)
   return Math.round(total / days.length)
 }

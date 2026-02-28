@@ -409,3 +409,34 @@ export async function cloudLoadYesterdayLog(): Promise<DailyLog | null> {
     return null
   }
 }
+
+// ─── Load log for a specific date (V1.8: Archive panel) ─────────────────────
+
+export async function cloudLoadLogByDate(dateStr: string): Promise<DailyLog | null> {
+  if (!isSupabaseConfigured()) return null
+
+  const uid = getUserId()
+  if (!uid) return null
+
+  try {
+    const { data, error } = await supabase()
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', uid)
+      .eq('log_date', dateStr)
+      .single()
+
+    if (error || !data) return null
+
+    return {
+      caloriesIn:      data.calories_in,
+      caloriesOut:     data.calories_out,
+      exerciseMinutes: data.exercise_minutes,
+      sleepHours:      data.sleep_hours,
+      waterMl:         data.water_ml,
+      flushDone:       data.flush_done,
+    }
+  } catch {
+    return null
+  }
+}
