@@ -17,7 +17,7 @@ export interface DailyLog {
   flushDone:       boolean  // daily bowel movement completed
 }
 
-const DEFAULT_LOG: DailyLog = {
+export const DEFAULT_LOG: DailyLog = {
   caloriesIn:      0,
   caloriesOut:     0,
   exerciseMinutes: 0,

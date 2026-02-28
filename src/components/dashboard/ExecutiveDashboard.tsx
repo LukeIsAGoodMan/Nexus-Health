@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -8,12 +8,15 @@ import {
 } from 'recharts'
 import {
   Zap, Activity, Moon, Flame, AlertTriangle, CheckCircle2,
-  Info, RotateCcw, Settings, Droplets, Ghost,
+  Info, RotateCcw, Settings, Droplets, Ghost, Share2, Cloud, CloudOff, Download,
 } from 'lucide-react'
+import { toPng } from 'html-to-image'
+import { type StoredProfile, type DailyLog } from '@/lib/local-store'
 import {
-  loadProfile, loadDailyLog, patchDailyLog, resetDailyLog,
-  type StoredProfile, type DailyLog,
-} from '@/lib/local-store'
+  cloudLoadProfile, cloudLoadDailyLog, cloudPatchDailyLog,
+  cloudResetDailyLog, cloudLoadYesterdayLog,
+  onSyncChange, type SyncStatus,
+} from '@/lib/data-sync'
 import { WATER_TARGET_ML } from '@/lib/health-engine'
 import { useLocale, translations, interp, type Locale } from '@/lib/i18n'
 
@@ -24,10 +27,10 @@ const C = {
   panel: '#0a0d14', border: 'rgba(57,255,20,0.15)',
 }
 
-// ─── Mock yesterday ───────────────────────────────────────────────────────────
-const MOCK_YESTERDAY: DailyLog = {
-  caloriesIn: 1850, caloriesOut: 280, exerciseMinutes: 35,
-  sleepHours: 6.5, waterMl: 1400, flushDone: true,
+// ─── Fallback yesterday (shown when no real data exists) ──────────────────────
+const FALLBACK_YESTERDAY: DailyLog = {
+  caloriesIn: 0, caloriesOut: 0, exerciseMinutes: 0,
+  sleepHours: 0, waterMl: 0, flushDone: false,
 }
 
 // ─── Sound + Haptic ───────────────────────────────────────────────────────────
@@ -192,6 +195,24 @@ function SystemClearLED({ done, t }: { done:boolean; t: typeof translations['en'
       <div className="w-4 h-4 rounded-full" style={{ background:done?C.calorie:'#2a2a2a', boxShadow:done?`0 0 12px ${C.calorie},0 0 24px ${C.calorie}55`:'none', transition:'all 0.4s ease' }} />
       <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color:done?C.calorie:'#444' }}>{done ? t.statusClear : t.statusPending}</span>
       <span className="text-[9px] text-gray-600">{t.systemClearLabel}</span>
+    </div>
+  )
+}
+
+function CloudSyncLED({ status, t }: { status: SyncStatus; t: typeof translations['en'] }) {
+  const syncing = status === 'syncing'
+  const synced  = status === 'synced'
+  const offline = status === 'offline'
+  const color   = syncing ? '#38bdf8' : synced ? '#39ff14' : offline ? '#f87171' : '#333'
+  const label   = syncing ? t.cloudSyncing : synced ? t.cloudSynced : offline ? t.cloudOffline : t.cloudSyncLabel
+  const IconC   = offline ? CloudOff : Cloud
+  return (
+    <div className="flex items-center gap-2 rounded-lg px-3 py-2"
+      style={{ background: `${color}08`, border: `1px solid ${color}22` }}>
+      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${syncing ? 'sync-pulse' : ''}`}
+        style={{ background: color, color, boxShadow: synced ? `0 0 8px ${color}, 0 0 16px ${color}55` : 'none', transition: 'all 0.4s ease' }} />
+      <IconC className="w-3 h-3 flex-shrink-0" style={{ color }} />
+      <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color, fontFamily: 'monospace' }}>{label}</span>
     </div>
   )
 }
@@ -395,29 +416,64 @@ export default function ExecutiveDashboard() {
   const [locale, setLocale] = useLocale()
   const t = translations[locale]
 
-  const [data,       setData]       = useState<StoredProfile | null>(null)
-  const [log,        setLog]        = useState<DailyLog>({ caloriesIn:0, caloriesOut:0, exerciseMinutes:0, sleepHours:0, waterMl:0, flushDone:false })
-  const [ghostMode,  setGhostMode]  = useState(false)
-  const [simHour,    setSimHour]    = useState<number | null>(null)
-  const [pulseRings, setPulseRings] = useState(false)
-  const [hydrated,   setHydrated]   = useState(false)
+  const [data,            setData]            = useState<StoredProfile | null>(null)
+  const [log,             setLog]             = useState<DailyLog>({ caloriesIn:0, caloriesOut:0, exerciseMinutes:0, sleepHours:0, waterMl:0, flushDone:false })
+  const [yesterdayLog,    setYesterdayLog]    = useState<DailyLog>(FALLBACK_YESTERDAY)
+  const [hasYesterday,    setHasYesterday]    = useState(false)
+  const [ghostMode,       setGhostMode]       = useState(false)
+  const [simHour,         setSimHour]         = useState<number | null>(null)
+  const [pulseRings,      setPulseRings]      = useState(false)
+  const [hydrated,        setHydrated]        = useState(false)
+  const [syncStatus,      setSyncStatus]      = useState<SyncStatus>('idle')
+  const [shareGenerating, setShareGenerating] = useState(false)
+  const snapshotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const profile = loadProfile()
-    if (!profile) { router.push('/profile'); return }
-    setData(profile); setLog(loadDailyLog()); setHydrated(true)
+    async function init() {
+      const profile = await cloudLoadProfile()
+      if (!profile) { router.push('/profile'); return }
+      const dailyLog = await cloudLoadDailyLog()
+      setData(profile)
+      setLog(dailyLog)
+      setHydrated(true)
+      // Pre-fetch yesterday's log for Ghost Mode
+      const yd = await cloudLoadYesterdayLog()
+      if (yd) { setYesterdayLog(yd); setHasYesterday(true) }
+    }
+    init()
+    const unsub = onSyncChange(setSyncStatus)
+    return unsub
   }, [router])
 
   const patch = useCallback((delta: Partial<DailyLog>, major = false) => {
-    playClick(major); patchDailyLog(delta); setLog(loadDailyLog())
+    playClick(major)
+    cloudPatchDailyLog(delta).then(next => setLog(next))
     if (major) { setPulseRings(true); setTimeout(() => setPulseRings(false), 800) }
   }, [])
 
-  const handleReset  = useCallback(() => { setLog(resetDailyLog()); playClick() }, [])
+  const handleReset  = useCallback(() => { playClick(); cloudResetDailyLog().then(next => setLog(next)) }, [])
   const toggleLocale = useCallback(() => { playClick(); setLocale(locale === 'cn' ? 'en' : 'cn') }, [locale, setLocale])
 
+  const handleShare = useCallback(async () => {
+    if (!snapshotRef.current || shareGenerating) return
+    playClick(true)
+    setShareGenerating(true)
+    try {
+      const dataUrl = await toPng(snapshotRef.current, {
+        backgroundColor: '#050508',
+        pixelRatio: 2,
+        style: { paddingBottom: '20px' },
+      })
+      const link = document.createElement('a')
+      link.download = `${t.shareFilename}-${new Date().toISOString().slice(0,10)}.png`
+      link.href = dataUrl
+      link.click()
+    } catch { /* capture failed */ }
+    setShareGenerating(false)
+  }, [shareGenerating, t.shareFilename])
+
   // Ghost or live base log
-  const displayLog = ghostMode ? MOCK_YESTERDAY : log
+  const displayLog = ghostMode ? yesterdayLog : log
 
   // Time-travel: scale to simulated hour
   const activeLog = useMemo<DailyLog>(() => {
@@ -477,6 +533,13 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Tactical Share */}
+          <button onClick={handleShare} disabled={shareGenerating}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase transition-all hover:scale-105 disabled:opacity-60 ${shareGenerating ? 'share-shimmer' : ''}`}
+            style={{ background:`${C.calorie}12`, border:`1px solid ${C.calorie}44`, color:C.calorie, fontFamily:'monospace' }}>
+            {shareGenerating ? <Download className="w-3 h-3 animate-pulse" /> : <Share2 className="w-3 h-3" />}
+            {shareGenerating ? t.shareGenerating : t.shareBtn}
+          </button>
           {/* CN/EN toggle */}
           <button onClick={toggleLocale}
             className="px-2.5 py-1 rounded-md text-[11px] font-black tracking-widest transition-all hover:scale-105"
@@ -509,8 +572,26 @@ export default function ExecutiveDashboard() {
           <AlertTriangle className="w-3 h-3" /> {t.alertBanner}
         </div>
       )}
+      {/* Ghost: no data fallback */}
+      {ghostMode && !hasYesterday && (
+        <div className="flex flex-col items-center justify-center gap-3 py-8 px-4" style={{ fontFamily:'monospace' }}>
+          <Ghost className="w-10 h-10" style={{ color:`${C.sleep}44` }} />
+          <span className="text-sm font-bold tracking-widest uppercase" style={{ color:C.sleep }}>{t.ghostNoData}</span>
+          <span className="text-[10px] text-gray-600 text-center max-w-xs">{t.ghostNoDataHint}</span>
+        </div>
+      )}
 
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      <div ref={snapshotRef} className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* Watermark — visible only in snapshot */}
+        <div className="flex items-center justify-between" style={{ fontFamily:'monospace' }}>
+          <div className="flex items-center gap-2">
+            <Zap className="w-3 h-3" style={{ color:C.calorie }} />
+            <span className="text-[8px] font-black tracking-[0.3em] uppercase" style={{ color:`${C.calorie}66` }}>{t.shareWatermark}</span>
+          </div>
+          <span className="text-[8px] tracking-wider" style={{ color:'#333' }}>
+            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.4
+          </span>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* ── LEFT: Rings ── */}
@@ -587,6 +668,10 @@ export default function ExecutiveDashboard() {
               </div>
               <div className="space-y-2">
                 {insights.map((ins, idx) => <InsightRow key={idx} i={ins} />)}
+              </div>
+              {/* Cloud Sync LED */}
+              <div className="mt-4 pt-3" style={{ borderTop:`1px solid ${C.border}` }}>
+                <CloudSyncLED status={syncStatus} t={t} />
               </div>
             </div>
 

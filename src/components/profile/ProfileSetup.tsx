@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Activity, Target, ChevronRight, User, Scale, Ruler, Calendar, Dumbbell, Zap } from 'lucide-react'
 import { calculateHealthMetrics, type UserProfile, type Gender, type Goal, type ActivityLevel } from '@/lib/health-engine'
-import { saveProfile } from '@/lib/local-store'
+import { cloudSaveProfile } from '@/lib/data-sync'
 
 interface FormState {
   heightCm: string
@@ -55,8 +55,9 @@ export default function ProfileSetup() {
     }
 
     const metrics = calculateHealthMetrics(profile)
-    saveProfile({ profile, metrics })
-    router.push('/dashboard')
+    cloudSaveProfile({ profile, metrics }).then(() => {
+      router.push('/dashboard')
+    })
   }
 
   return (

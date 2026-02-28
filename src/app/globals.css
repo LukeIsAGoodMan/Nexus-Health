@@ -107,3 +107,21 @@ body {
   box-shadow: 0 0 8px #39ff14;
   cursor: pointer;
 }
+
+/* ── Cloud sync LED pulse ── */
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50%      { opacity: 0.4; box-shadow: 0 0 12px currentColor, 0 0 24px currentColor; }
+}
+.sync-pulse { animation: sync-pulse 1s ease-in-out infinite; }
+
+/* ── Share button shimmer ── */
+@keyframes share-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.share-shimmer {
+  background: linear-gradient(90deg, transparent 30%, rgba(57,255,20,0.15) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: share-shimmer 1.5s ease-in-out infinite;
+}

@@ -52,6 +52,19 @@ export interface Messages {
   // Profile chip
   profileLabel: string
   goalLoss: string; goalGain: string; goalMaintain: string
+  // Tactical Share
+  shareBtn: string
+  shareWatermark: string
+  shareGenerating: string
+  shareFilename: string
+  // Cloud Sync
+  cloudSyncLabel: string
+  cloudSyncing: string
+  cloudSynced: string
+  cloudOffline: string
+  // Ghost fallback
+  ghostNoData: string
+  ghostNoDataHint: string
   // Status messages (use {placeholders})
   msgAwaitingInput: string
   msgDeficitHigh: string      // {bal}
@@ -134,6 +147,20 @@ export const translations: Record<Locale, Messages> = {
     profileLabel:   'Profile',
     goalLoss:    'Fat Loss', goalGain: 'Muscle Gain', goalMaintain: 'Maintain',
 
+    // Tactical Share
+    shareBtn:        'SHARE',
+    shareWatermark:  'NEXUS HEALTH SYSTEM',
+    shareGenerating: 'GENERATING...',
+    shareFilename:   'nexus-tactical-report',
+    // Cloud Sync
+    cloudSyncLabel:  'Cloud Sync',
+    cloudSyncing:    'SYNCING',
+    cloudSynced:     'SYNCED',
+    cloudOffline:    'OFFLINE',
+    // Ghost fallback
+    ghostNoData:     'NO INTEL FOR YESTERDAY',
+    ghostNoDataHint: 'Start logging today — tomorrow this will show your data.',
+
     // Status messages
     msgAwaitingInput:      '> AWAITING_INPUT  No calories logged. Begin tracking.',
     msgDeficitHigh:        '> DEFICIT_HIGH [{bal} kcal]  Consume 300 kcal snack to protect lean mass.',
@@ -213,6 +240,20 @@ export const translations: Record<Locale, Messages> = {
 
     profileLabel: '档案',
     goalLoss: '减脂', goalGain: '增肌', goalMaintain: '维持',
+
+    // Tactical Share
+    shareBtn:        '分享',
+    shareWatermark:  'NEXUS HEALTH SYSTEM',
+    shareGenerating: '生成中...',
+    shareFilename:   'nexus-战报',
+    // Cloud Sync
+    cloudSyncLabel:  '云端同步',
+    cloudSyncing:    '同步中',
+    cloudSynced:     '已同步',
+    cloudOffline:    '离线',
+    // Ghost fallback
+    ghostNoData:     '昨日无数据',
+    ghostNoDataHint: '今天开始记录，明天这里就能看到你的数据。',
 
     // Status messages (> CODE prefix + tech terms kept in English)
     msgAwaitingInput:      '> AWAITING_INPUT  未记录热量。请开始追踪。',
