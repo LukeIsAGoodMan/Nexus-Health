@@ -10,7 +10,10 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { type UserProfile, type HealthMetrics } from './health-engine'
+import {
+  type UserProfile, type HealthMetrics,
+  type DaySnapshot, calculateExecutionScore,
+} from './health-engine'
 import {
   type StoredProfile,
   type DailyLog,
@@ -227,18 +230,34 @@ export async function cloudResetDailyLog(): Promise<DailyLog> {
 
 // ─── Recent logs (for Execution Score) ──────────────────────────────────────
 
-export async function cloudLoadRecentLogs(dayCount: number): Promise<DailyLog[]> {
-  if (!isSupabaseConfigured()) return []
-
-  const uid = getUserId()
-  if (!uid) return []
-
+function buildDateRange(dayCount: number): string[] {
   const dates: string[] = []
   for (let i = 0; i < dayCount; i++) {
     const d = new Date()
     d.setDate(d.getDate() - i)
     dates.push(d.toISOString().slice(0, 10))
   }
+  return dates
+}
+
+function mapRowToLog(row: Record<string, unknown>): DailyLog {
+  return {
+    caloriesIn:      row.calories_in as number,
+    caloriesOut:     row.calories_out as number,
+    exerciseMinutes: row.exercise_minutes as number,
+    sleepHours:      row.sleep_hours as number,
+    waterMl:         row.water_ml as number,
+    flushDone:       row.flush_done as boolean,
+  }
+}
+
+export async function cloudLoadRecentLogs(dayCount: number): Promise<DailyLog[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const uid = getUserId()
+  if (!uid) return []
+
+  const dates = buildDateRange(dayCount)
 
   try {
     const { data, error } = await supabase()
@@ -248,16 +267,109 @@ export async function cloudLoadRecentLogs(dayCount: number): Promise<DailyLog[]>
       .in('log_date', dates)
       .order('log_date', { ascending: false })
 
-    if (error || !data) return []
+    if (error || !data) return dates.map(() => ({ ...DEFAULT_LOG }))
 
-    return data.map((row: Record<string, unknown>) => ({
-      caloriesIn:      row.calories_in as number,
-      caloriesOut:     row.calories_out as number,
-      exerciseMinutes: row.exercise_minutes as number,
-      sleepHours:      row.sleep_hours as number,
-      waterMl:         row.water_ml as number,
-      flushDone:       row.flush_done as boolean,
-    }))
+    // Pad missing days with DEFAULT_LOG so missing days score 0
+    const rowMap = new Map<string, DailyLog>()
+    for (const row of data) rowMap.set(row.log_date as string, mapRowToLog(row))
+    return dates.map(d => rowMap.get(d) ?? { ...DEFAULT_LOG })
+  } catch {
+    return []
+  }
+}
+
+export async function cloudLoadRecentLogsWithDates(
+  dayCount: number,
+): Promise<{ date: string; log: DailyLog }[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const uid = getUserId()
+  if (!uid) return []
+
+  const dates = buildDateRange(dayCount)
+
+  try {
+    const { data, error } = await supabase()
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', uid)
+      .in('log_date', dates)
+
+    const rowMap = new Map<string, DailyLog>()
+    if (!error && data) {
+      for (const row of data) rowMap.set(row.log_date as string, mapRowToLog(row))
+    }
+    // Return newest→oldest with padding
+    return dates.map(d => ({ date: d, log: rowMap.get(d) ?? { ...DEFAULT_LOG } }))
+  } catch {
+    return []
+  }
+}
+
+// ─── Leaderboard (V1.6) ───────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  userId: string
+  score: number
+  goal: string
+}
+
+export async function cloudLoadLeaderboard(): Promise<LeaderboardEntry[]> {
+  if (!isSupabaseConfigured()) return []
+
+  try {
+    // 1. All daily_logs from last 3 days (all users)
+    const dates = buildDateRange(3)
+    const { data: logs, error: logErr } = await supabase()
+      .from('daily_logs')
+      .select('user_id, log_date, calories_in, calories_out, exercise_minutes, sleep_hours, water_ml')
+      .in('log_date', dates)
+
+    if (logErr || !logs) return []
+
+    // 2. All profiles for target_calories + goal
+    const { data: profiles, error: profErr } = await supabase()
+      .from('profiles')
+      .select('user_id, target_calories, goal')
+
+    if (profErr || !profiles) return []
+
+    // 3. Group logs by user, compute scores
+    const profileMap = new Map(profiles.map((p: Record<string, unknown>) =>
+      [p.user_id as string, p] as const
+    ))
+    const userLogs = new Map<string, DaySnapshot[]>()
+
+    for (const row of logs) {
+      const snap: DaySnapshot = {
+        caloriesIn:      row.calories_in as number,
+        caloriesOut:     row.calories_out as number,
+        exerciseMinutes: row.exercise_minutes as number,
+        sleepHours:      row.sleep_hours as number,
+        waterMl:         row.water_ml as number,
+      }
+      const arr = userLogs.get(row.user_id as string) ?? []
+      arr.push(snap)
+      userLogs.set(row.user_id as string, arr)
+    }
+
+    // 4. Score per user (pad to 3 days)
+    const entries: LeaderboardEntry[] = []
+    for (const [userId, snaps] of userLogs) {
+      const prof = profileMap.get(userId)
+      if (!prof) continue
+      while (snaps.length < 3) {
+        snaps.push({ caloriesIn: 0, caloriesOut: 0, exerciseMinutes: 0, sleepHours: 0, waterMl: 0 })
+      }
+      entries.push({
+        userId,
+        score: calculateExecutionScore(snaps, prof.target_calories as number),
+        goal:  prof.goal as string,
+      })
+    }
+
+    entries.sort((a, b) => b.score - a.score)
+    return entries.slice(0, 10)
   } catch {
     return []
   }

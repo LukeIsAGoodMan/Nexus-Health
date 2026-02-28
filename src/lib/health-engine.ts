@@ -75,44 +75,40 @@ export interface DaySnapshot {
   waterMl: number
 }
 
+/** Score a single day (0–100). Exported for per-day sparkline use. */
+export function calculateDayScore(day: DaySnapshot, targetCalories: number): number {
+  let s = 0
+  const net = day.caloriesIn - day.caloriesOut
+  const diff = Math.abs(targetCalories - net)
+
+  // Calorie accuracy (40 pts max)
+  if (diff <= 100)      s += 40
+  else if (diff <= 300) s += 30
+  else if (diff <= 500) s += 15
+
+  // Hydration (20 pts max)
+  if (day.waterMl >= WATER_TARGET_ML)      s += 20
+  else if (day.waterMl >= 1500)            s += 12
+  else if (day.waterMl >= 1000)            s += 5
+  else                                     s -= 5  // dehydration penalty
+
+  // Exercise (20 pts max)
+  if (day.exerciseMinutes >= 30)           s += 20
+  else if (day.exerciseMinutes >= 15)      s += 10
+
+  // Sleep (20 pts max)
+  if (day.sleepHours >= 7 && day.sleepHours <= 9) s += 20
+  else if (day.sleepHours >= 6)                    s += 10
+  else if (day.sleepHours > 0)                     s += 3
+
+  return Math.max(0, Math.min(100, s))
+}
+
 export function calculateExecutionScore(
   days: DaySnapshot[],
   targetCalories: number,
 ): number {
   if (days.length === 0) return 0
-
-  let totalPoints = 0
-
-  for (const d of days) {
-    let dayScore = 0
-    const net = d.caloriesIn - d.caloriesOut
-    const diff = Math.abs(targetCalories - net)
-
-    // Calorie accuracy (40 pts max per day)
-    if (diff <= 100)      dayScore += 40
-    else if (diff <= 300) dayScore += 30
-    else if (diff <= 500) dayScore += 15
-    // else 0
-
-    // Hydration (20 pts max)
-    if (d.waterMl >= WATER_TARGET_ML)      dayScore += 20
-    else if (d.waterMl >= 1500)            dayScore += 12
-    else if (d.waterMl >= 1000)            dayScore += 5
-    else                                   dayScore -= 5  // dehydration penalty
-
-    // Exercise (20 pts max)
-    if (d.exerciseMinutes >= 30)           dayScore += 20
-    else if (d.exerciseMinutes >= 15)      dayScore += 10
-    // else 0
-
-    // Sleep (20 pts max)
-    if (d.sleepHours >= 7 && d.sleepHours <= 9) dayScore += 20
-    else if (d.sleepHours >= 6)                  dayScore += 10
-    else if (d.sleepHours > 0)                   dayScore += 3
-    // else 0 (not logged)
-
-    totalPoints += Math.max(0, Math.min(100, dayScore))
-  }
-
-  return Math.round(totalPoints / days.length)
+  const total = days.reduce((sum, d) => sum + calculateDayScore(d, targetCalories), 0)
+  return Math.round(total / days.length)
 }

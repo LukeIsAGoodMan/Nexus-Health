@@ -3,21 +3,23 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip,
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip,
   ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import {
   Zap, Activity, Moon, Flame, AlertTriangle, CheckCircle2,
   Info, RotateCcw, Settings, Droplets, Ghost, Share2, Cloud, CloudOff, Download, Search,
+  Users, X,
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { type StoredProfile, type DailyLog } from '@/lib/local-store'
 import {
   cloudLoadProfile, cloudLoadDailyLog, cloudPatchDailyLog,
   cloudResetDailyLog, cloudLoadYesterdayLog, cloudLoadRecentLogs,
-  onSyncChange, type SyncStatus,
+  cloudLoadRecentLogsWithDates, cloudLoadLeaderboard,
+  getUserId, onSyncChange, type SyncStatus, type LeaderboardEntry,
 } from '@/lib/data-sync'
-import { WATER_TARGET_ML, calculateExecutionScore } from '@/lib/health-engine'
+import { WATER_TARGET_ML, calculateExecutionScore, calculateDayScore } from '@/lib/health-engine'
 import { searchFood, type FoodItem } from '@/lib/food-db'
 import { useLocale, translations, interp, type Locale } from '@/lib/i18n'
 
@@ -333,6 +335,133 @@ function EnergyTrendChart({ net, targetCalories, ghostMode, simHour, onSimHour, 
   )
 }
 
+// ─── Weekly Efficiency Sparkline (V1.6) ──────────────────────────────────────
+function WeeklySparkline({ scores, t }: { scores: { date: string; score: number }[]; t: typeof translations['en'] }) {
+  if (scores.length === 0) return null
+  const avg = Math.round(scores.reduce((s, d) => s + d.score, 0) / scores.length)
+  const avgColor = avg >= 70 ? C.calorie : avg >= 40 ? '#fbbf24' : '#f87171'
+  return (
+    <div className="rounded-2xl p-5 w-full" style={{ background: C.panel, border: `1px solid ${C.border}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-4 rounded-full" style={{ background: C.calorie, boxShadow: `0 0 8px ${C.calorie}` }} />
+          <span className="text-[10px] font-black tracking-[0.25em] uppercase" style={{ color: C.calorie, fontFamily: 'monospace' }}>
+            {t.weeklyEfficiencyTitle}
+          </span>
+        </div>
+        <span className="text-[10px] font-bold" style={{ color: avgColor, fontFamily: 'monospace' }}>
+          {t.weeklyAvgLabel} {avg}%
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={80}>
+        <LineChart data={scores} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <XAxis dataKey="date" tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <YAxis domain={[0, 100]} tick={{ fill: '#444', fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip
+            contentStyle={{ background: '#0d1420', border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 10 }}
+            labelStyle={{ color: '#666' }}
+            formatter={(value: number | string | undefined) => [`${value ?? 0}%`, 'SYS_EFF']}
+          />
+          <ReferenceLine y={70} stroke={`${C.calorie}33`} strokeDasharray="4 4" />
+          <Line type="monotone" dataKey="score" name="SYS_EFF" stroke={C.calorie} strokeWidth={2}
+            dot={{ r: 3, fill: C.calorie, stroke: C.calorie }}
+            style={{ filter: `drop-shadow(0 0 4px ${C.calorie})` }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── News Ticker (V1.6) ─────────────────────────────────────────────────────
+function NewsTicker({ leaderboard, t }: { leaderboard: LeaderboardEntry[]; t: typeof translations['en'] }) {
+  const count  = leaderboard.length
+  const avgEff = count > 0 ? Math.round(leaderboard.reduce((s, e) => s + e.score, 0) / count) : 0
+  const top    = count > 0 ? leaderboard[0].score : 0
+
+  const items = [
+    `${t.tickerGlobalEff}: ${avgEff}%`,
+    `${t.tickerActiveOps}: ${count}`,
+    t.tickerSystemStable,
+    `${t.tickerTopScore}: ${top}%`,
+    'NEXUS V1.6',
+  ]
+  const text = items.join('  ///  ')
+
+  return (
+    <div className="overflow-hidden" style={{ background: '#050508', borderBottom: `1px solid ${C.border}`, height: '22px' }}>
+      <div className="nexus-ticker text-[9px] font-bold tracking-[0.15em] uppercase leading-[22px]"
+        style={{ color: `${C.calorie}88`, fontFamily: 'monospace' }}>
+        <span>{text}</span>
+        <span className="ml-16">{text}</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Squad Status Panel (V1.6) ──────────────────────────────────────────────
+function SquadStatusPanel({ entries, open, onClose, currentUserId, t }: {
+  entries: LeaderboardEntry[]; open: boolean; onClose: () => void; currentUserId: string; t: typeof translations['en']
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm h-full overflow-y-auto"
+        style={{ background: '#0a0d14', borderLeft: `1px solid ${C.border}` }}>
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3"
+          style={{ background: '#0a0d14', borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" style={{ color: C.calorie }} />
+            <span className="text-[10px] font-black tracking-[0.25em] uppercase"
+              style={{ color: C.calorie, fontFamily: 'monospace' }}>{t.squadTitle}</span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/5 transition-colors">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+        <div className="px-4 py-3 space-y-2">
+          {entries.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-8 h-8 mx-auto mb-2" style={{ color: '#333' }} />
+              <span className="text-[10px] text-gray-600" style={{ fontFamily: 'monospace' }}>{t.squadEmpty}</span>
+            </div>
+          ) : entries.map((entry, idx) => {
+            const isMe = entry.userId === currentUserId
+            const rankColor = idx === 0 ? '#ffd700' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#555'
+            const scoreColor = entry.score >= 70 ? C.calorie : entry.score >= 40 ? '#fbbf24' : '#f87171'
+            const goalLabel = entry.goal === 'loss' ? t.goalLoss : entry.goal === 'gain' ? t.goalGain : t.goalMaintain
+            return (
+              <div key={entry.userId}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                style={{
+                  background: isMe ? `${C.calorie}08` : C.panel,
+                  border: `1px solid ${isMe ? C.calorie + '44' : C.border}`,
+                }}>
+                <span className="text-sm font-black w-6 text-center" style={{ color: rankColor, fontFamily: 'monospace' }}>
+                  {idx < 3 ? ['I', 'II', 'III'][idx] : `${idx + 1}`}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-bold truncate" style={{ color: isMe ? C.calorie : '#aaa', fontFamily: 'monospace' }}>
+                    {isMe ? t.squadYou : `OP-${entry.userId.slice(0, 6).toUpperCase()}`}
+                  </div>
+                  <div className="text-[9px] text-gray-600" style={{ fontFamily: 'monospace' }}>{goalLabel}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-black tabular-nums" style={{ color: scoreColor, textShadow: `0 0 6px ${scoreColor}88` }}>
+                    {entry.score}%
+                  </div>
+                  <div className="text-[8px] text-gray-600" style={{ fontFamily: 'monospace' }}>SYS_EFF</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sticky Quick-Log bar ─────────────────────────────────────────────────────
 type Tab = 'cal' | 'ex' | 'water' | 'sleep' | 'sys'
 
@@ -448,6 +577,9 @@ export default function ExecutiveDashboard() {
   const [syncStatus,      setSyncStatus]      = useState<SyncStatus>('idle')
   const [shareGenerating, setShareGenerating] = useState(false)
   const [execScore,       setExecScore]       = useState<number | null>(null)
+  const [weeklyScores,    setWeeklyScores]    = useState<{ date: string; score: number }[]>([])
+  const [leaderboard,     setLeaderboard]     = useState<LeaderboardEntry[]>([])
+  const [squadOpen,       setSquadOpen]       = useState(false)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -466,6 +598,17 @@ export default function ExecutiveDashboard() {
       if (recent.length > 0) {
         setExecScore(calculateExecutionScore(recent, profile.metrics.targetCalories))
       }
+      // V1.6: Weekly sparkline (7 days)
+      const weekly = await cloudLoadRecentLogsWithDates(7)
+      if (weekly.length > 0) {
+        setWeeklyScores(weekly.map(({ date, log: dl }) => ({
+          date: date.slice(5), // MM-DD
+          score: calculateDayScore(dl, profile.metrics.targetCalories),
+        })).reverse())
+      }
+      // V1.6: Leaderboard
+      const lb = await cloudLoadLeaderboard()
+      setLeaderboard(lb)
     }
     init()
     const unsub = onSyncChange(setSyncStatus)
@@ -546,6 +689,9 @@ export default function ExecutiveDashboard() {
   return (
     <div className="min-h-screen text-white pb-36 nexus-scanline" style={{ background:'#050508' }}>
 
+      {/* ── News Ticker (V1.6) ── */}
+      <NewsTicker leaderboard={leaderboard} t={t} />
+
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3" style={{ background:'#0a0d14', borderBottom:`1px solid ${C.border}` }}>
         <div className="flex items-center gap-3 min-w-0">
@@ -577,6 +723,13 @@ export default function ExecutiveDashboard() {
             style={{ background:`${C.calorie}12`, border:`1px solid ${C.calorie}44`, color:C.calorie, fontFamily:'monospace' }}>
             {shareGenerating ? <Download className="w-3 h-3 animate-pulse" /> : <Share2 className="w-3 h-3" />}
             {shareGenerating ? t.shareGenerating : t.shareBtn}
+          </button>
+          {/* Squad Status */}
+          <button onClick={() => { setSquadOpen(true); playClick() }}
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase transition-all hover:scale-105"
+            style={{ background:`${C.exercise}12`, border:`1px solid ${C.exercise}44`, color:C.exercise, fontFamily:'monospace' }}>
+            <Users className="w-3 h-3" />
+            {t.squadBtn}
           </button>
           {/* CN/EN toggle */}
           <button onClick={toggleLocale}
@@ -627,7 +780,7 @@ export default function ExecutiveDashboard() {
             <span className="text-[8px] font-black tracking-[0.3em] uppercase" style={{ color:`${C.calorie}66` }}>{t.shareWatermark}</span>
           </div>
           <span className="text-[8px] tracking-wider" style={{ color:'#333' }}>
-            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.5
+            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.6
           </span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -730,10 +883,20 @@ export default function ExecutiveDashboard() {
           net={net} targetCalories={metrics.targetCalories}
           ghostMode={ghostMode} simHour={simHour} onSimHour={setSimHour} t={t}
         />
+
+        {/* ── Weekly Efficiency Sparkline (V1.6) ── */}
+        <WeeklySparkline scores={weeklyScores} t={t} />
       </div>
 
       {/* ── Sticky Quick Log ── */}
       <StickyQuickLog log={log} ghostMode={ghostMode} locale={locale} t={t} onPatch={patch} onReset={handleReset} />
+
+      {/* ── Squad Status Panel (V1.6) ── */}
+      <SquadStatusPanel
+        entries={leaderboard} open={squadOpen}
+        onClose={() => setSquadOpen(false)}
+        currentUserId={getUserId()} t={t}
+      />
     </div>
   )
 }

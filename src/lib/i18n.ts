@@ -1,5 +1,5 @@
 // Nexus Health i18n — EN / CN
-// Tech terms (BMR, TDEE, kcal, ml, GLITCH, V1.3) always stay in English.
+// Tech terms (BMR, TDEE, kcal, ml, GLITCH, V1.6) always stay in English.
 
 import { useState, useEffect } from 'react'
 
@@ -73,6 +73,19 @@ export interface Messages {
   // Profile ID
   profileIdLabel: string
   profileIdCopied: string
+  // V1.6: Weekly Efficiency
+  weeklyEfficiencyTitle: string
+  weeklyAvgLabel: string
+  // V1.6: Squad Status
+  squadTitle: string
+  squadBtn: string
+  squadEmpty: string
+  squadYou: string
+  // V1.6: News Ticker
+  tickerGlobalEff: string
+  tickerActiveOps: string
+  tickerSystemStable: string
+  tickerTopScore: string
   // Status messages (use {placeholders})
   msgAwaitingInput: string
   msgDeficitHigh: string      // {bal}
@@ -100,7 +113,7 @@ export interface Messages {
 // ─── Dictionaries ─────────────────────────────────────────────────────────────
 export const translations: Record<Locale, Messages> = {
   en: {
-    subtitle:        'Executive Command Center · V1.3',
+    subtitle:        'Executive Command Center · V1.6',
     liveMode:        'LIVE',
     ghostToggle:     'GHOST',
     missionPrefix:   'MISSION:',
@@ -176,6 +189,19 @@ export const translations: Record<Locale, Messages> = {
     // Profile ID
     profileIdLabel:        'Profile ID',
     profileIdCopied:       'Copied!',
+    // V1.6: Weekly Efficiency
+    weeklyEfficiencyTitle: '7-Day Efficiency',
+    weeklyAvgLabel:        'AVG:',
+    // V1.6: Squad Status
+    squadTitle:            'Squad Status',
+    squadBtn:              'SQUAD',
+    squadEmpty:            'No operatives found. Deploy more agents.',
+    squadYou:              'YOU',
+    // V1.6: News Ticker
+    tickerGlobalEff:       'GLOBAL_AVG_EFFICIENCY',
+    tickerActiveOps:       'ACTIVE_OPERATIVES',
+    tickerSystemStable:    'ALL_SYSTEMS_NOMINAL',
+    tickerTopScore:        'TOP_SCORE',
 
     // Status messages
     msgAwaitingInput:      '> AWAITING_INPUT  No calories logged. Begin tracking.',
@@ -202,7 +228,7 @@ export const translations: Record<Locale, Messages> = {
   },
 
   cn: {
-    subtitle:        '执行指挥中心 · V1.3',
+    subtitle:        '执行指挥中心 · V1.6',
     liveMode:        '实时',
     ghostToggle:     '昨日',
     missionPrefix:   '当前任务:',
@@ -278,6 +304,19 @@ export const translations: Record<Locale, Messages> = {
     // Profile ID
     profileIdLabel:        '用户 ID',
     profileIdCopied:       '已复制!',
+    // V1.6: Weekly Efficiency
+    weeklyEfficiencyTitle: '7日效率趋势',
+    weeklyAvgLabel:        '均值:',
+    // V1.6: Squad Status
+    squadTitle:            '小队状态',
+    squadBtn:              '小队',
+    squadEmpty:            '未找到行动人员。部署更多成员。',
+    squadYou:              '你',
+    // V1.6: News Ticker
+    tickerGlobalEff:       '全局平均效率',
+    tickerActiveOps:       '活跃人员',
+    tickerSystemStable:    '全部系统正常',
+    tickerTopScore:        '最高分',
 
     // Status messages (> CODE prefix + tech terms kept in English)
     msgAwaitingInput:      '> AWAITING_INPUT  未记录热量。请开始追踪。',

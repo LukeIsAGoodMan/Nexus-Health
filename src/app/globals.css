@@ -126,6 +126,20 @@ body {
   animation: share-shimmer 1.5s ease-in-out infinite;
 }
 
+/* ── News ticker marquee scroll ── */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.nexus-ticker {
+  display: flex;
+  white-space: nowrap;
+  animation: ticker-scroll 25s linear infinite;
+}
+.nexus-ticker:hover {
+  animation-play-state: paused;
+}
+
 /* ── Tactical scanline overlay ── */
 .nexus-scanline::after {
   content: '';
