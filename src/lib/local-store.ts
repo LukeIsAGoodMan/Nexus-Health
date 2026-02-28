@@ -67,3 +67,20 @@ export function resetDailyLog(): DailyLog {
   saveDailyLog({ ...DEFAULT_LOG })
   return { ...DEFAULT_LOG }
 }
+
+// ─── Food Frequency Tracking (V1.7) ─────────────────────────────────────────
+const FOOD_FREQ_KEY = 'nexus_food_freq'
+
+export function loadFoodFrequency(): Record<string, number> {
+  if (typeof window === 'undefined') return {}
+  const raw = localStorage.getItem(FOOD_FREQ_KEY)
+  if (!raw) return {}
+  try { return JSON.parse(raw) as Record<string, number> } catch { return {} }
+}
+
+export function bumpFoodFrequency(foodId: string): Record<string, number> {
+  const freq = loadFoodFrequency()
+  freq[foodId] = (freq[foodId] ?? 0) + 1
+  localStorage.setItem(FOOD_FREQ_KEY, JSON.stringify(freq))
+  return freq
+}

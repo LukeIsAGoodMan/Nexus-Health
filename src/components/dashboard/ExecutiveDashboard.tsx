@@ -12,7 +12,7 @@ import {
   Users, X,
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
-import { type StoredProfile, type DailyLog } from '@/lib/local-store'
+import { type StoredProfile, type DailyLog, loadFoodFrequency, bumpFoodFrequency } from '@/lib/local-store'
 import {
   cloudLoadProfile, cloudLoadDailyLog, cloudPatchDailyLog,
   cloudResetDailyLog, cloudLoadYesterdayLog, cloudLoadRecentLogs,
@@ -20,7 +20,7 @@ import {
   getUserId, onSyncChange, type SyncStatus, type LeaderboardEntry,
 } from '@/lib/data-sync'
 import { WATER_TARGET_ML, calculateExecutionScore, calculateDayScore } from '@/lib/health-engine'
-import { searchFood, type FoodItem } from '@/lib/food-db'
+import { searchFood, FOOD_DB, type FoodItem } from '@/lib/food-db'
 import { useLocale, translations, interp, type Locale } from '@/lib/i18n'
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
@@ -64,18 +64,22 @@ function playClick(major = false) {
 }
 
 // ─── Mission text ─────────────────────────────────────────────────────────────
-function getMission(log: DailyLog, targetCalories: number, t: typeof translations['en']) {
+type MissionResult = { text: string; critical: boolean }
+
+function getMission(log: DailyLog, targetCalories: number, t: typeof translations['en']): MissionResult {
   const hour = new Date().getHours()
   const net  = log.caloriesIn - log.caloriesOut
   const bal  = targetCalories - net
-  if (log.caloriesIn === 0) return t.missionStandby
-  if (hour >= 21)           return t.missionSleep
-  if (bal > 700)            return t.missionFatBurn
-  if (bal < -300)           return t.missionRefuel
-  if (log.exerciseMinutes === 0) return t.missionRecovery
+  if (log.caloriesIn === 0)                  return { text: t.missionStandby,     critical: false }
+  if (hour >= 21)                            return { text: t.missionSleep,       critical: false }
+  // V1.7: Time-sensitive critical refuel
+  if (hour >= 16 && bal > 800)               return { text: t.missionCriticalRefuel, critical: true }
+  if (bal > 700)                             return { text: t.missionFatBurn,     critical: false }
+  if (bal < -300)                            return { text: t.missionRefuel,      critical: false }
+  if (log.exerciseMinutes === 0)             return { text: t.missionRecovery,    critical: false }
   const allGood = log.exerciseMinutes >= 30 && log.sleepHours >= 7 &&
                   log.waterMl >= WATER_TARGET_ML && bal >= 0 && bal <= 500
-  return allGood ? t.missionComplete : t.missionOptimal
+  return allGood ? { text: t.missionComplete, critical: false } : { text: t.missionOptimal, critical: false }
 }
 
 // ─── Rule Engine ──────────────────────────────────────────────────────────────
@@ -100,6 +104,11 @@ function runEngine(log: DailyLog, targetCalories: number, bmr: number, t: typeof
       ? (t.msgCalorieOk.includes('剩余') ? `剩余 ${bal} kcal。` : `${bal} kcal remaining.`)
       : (t.msgCalorieOk.includes('目标') ? '目标已达成。' : 'Target reached.')
     out.push({ level: 'ok', message: interp(t.msgCalorieOk, { rem: remText }) })
+  }
+
+  // V1.7: Time-sensitive refuel recommendation
+  if (hour >= 16 && bal > 800 && log.caloriesIn > 0) {
+    out.push({ level: 'alert', message: interp(t.msgCriticalRefuel, { kcal: bal }) })
   }
 
   // Burn-out predictor
@@ -384,7 +393,7 @@ function NewsTicker({ leaderboard, t }: { leaderboard: LeaderboardEntry[]; t: ty
     `${t.tickerActiveOps}: ${count}`,
     t.tickerSystemStable,
     `${t.tickerTopScore}: ${top}%`,
-    'NEXUS V1.6',
+    'NEXUS V1.7',
   ]
   const text = items.join('  ///  ')
 
@@ -465,17 +474,34 @@ function SquadStatusPanel({ entries, open, onClose, currentUserId, t }: {
 // ─── Sticky Quick-Log bar ─────────────────────────────────────────────────────
 type Tab = 'cal' | 'ex' | 'water' | 'sleep' | 'sys'
 
-function StickyQuickLog({ log, ghostMode, locale, t, onPatch, onReset }: {
+function StickyQuickLog({ log, ghostMode, locale, t, onPatch, onReset, foodFreq, onFoodLog }: {
   log:DailyLog; ghostMode:boolean; locale:'en'|'cn'; t: typeof translations['en']
   onPatch:(d:Partial<DailyLog>,major?:boolean)=>void; onReset:()=>void
+  foodFreq:Record<string,number>; onFoodLog:(f:FoodItem)=>void
 }) {
   const [tab, setTab] = useState<Tab>('cal')
   const [foodQuery, setFoodQuery] = useState('')
   const dis = ghostMode
   const results = foodQuery ? searchFood(foodQuery, locale) : []
 
+  // V1.7: Top 3 favorite foods by frequency
+  const topFavs = useMemo(() => {
+    const entries = Object.entries(foodFreq).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    return entries.map(([id]) => FOOD_DB.find(f => f.id === id)).filter(Boolean) as FoodItem[]
+  }, [foodFreq])
+
   const panels: Record<Tab, React.ReactNode> = {
     cal: <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+      {/* V1.7: Favorite food pills */}
+      {!foodQuery && topFavs.length > 0 && topFavs.map(f => (
+        <button key={`fav-${f.id}`} onClick={() => { if (!dis) onFoodLog(f) }}
+          className="rounded-full px-2.5 py-1 text-[9px] font-bold tracking-wide transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+          style={{ background:`${C.calorie}22`, border:`1px solid ${C.calorie}66`, color:C.calorie, fontFamily:'monospace' }}>
+          <Zap className="w-2.5 h-2.5" />
+          <span>{locale==='cn'?f.nameCn:f.name}</span>
+          <span className="opacity-50">{f.kcal}</span>
+        </button>
+      ))}
       <div className="relative flex-1 min-w-[140px] max-w-[220px]">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-600 pointer-events-none" />
         <input value={foodQuery} onChange={e => setFoodQuery(e.target.value)}
@@ -485,7 +511,7 @@ function StickyQuickLog({ log, ghostMode, locale, t, onPatch, onReset }: {
       </div>
       {foodQuery ? (
         results.length > 0 ? results.map((f: FoodItem) => (
-          <button key={f.id} onClick={() => { if (!dis) { onPatch({ caloriesIn: f.kcal }, true); setFoodQuery('') } }}
+          <button key={f.id} onClick={() => { if (!dis) { onFoodLog(f); setFoodQuery('') } }}
             className="rounded-lg px-2 py-1.5 text-[10px] font-bold tracking-wide transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5"
             style={{ background:`${C.calorie}12`, border:`1px solid ${C.calorie}44`, color:C.calorie, fontFamily:'monospace' }}>
             <span>{locale==='cn'?f.nameCn:f.name}</span>
@@ -580,6 +606,8 @@ export default function ExecutiveDashboard() {
   const [weeklyScores,    setWeeklyScores]    = useState<{ date: string; score: number }[]>([])
   const [leaderboard,     setLeaderboard]     = useState<LeaderboardEntry[]>([])
   const [squadOpen,       setSquadOpen]       = useState(false)
+  const [foodFreq,        setFoodFreq]        = useState<Record<string, number>>({})
+  const [stabilityPct,    setStabilityPct]    = useState<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -609,6 +637,16 @@ export default function ExecutiveDashboard() {
       // V1.6: Leaderboard
       const lb = await cloudLoadLeaderboard()
       setLeaderboard(lb)
+      // V1.7: Food frequency
+      setFoodFreq(loadFoodFrequency())
+      // V1.7: Biological Stability Index (30 days)
+      const monthly = await cloudLoadRecentLogsWithDates(30)
+      if (monthly.length > 0) {
+        const goodDays = monthly.filter(({ log: dl }) =>
+          calculateDayScore(dl, profile.metrics.targetCalories) >= 70
+        ).length
+        setStabilityPct(Math.round((goodDays / monthly.length) * 100))
+      }
     }
     init()
     const unsub = onSyncChange(setSyncStatus)
@@ -621,6 +659,12 @@ export default function ExecutiveDashboard() {
     if (major) { setPulseRings(true); setTimeout(() => setPulseRings(false), 800) }
   }, [])
 
+  const handleFoodLog = useCallback((food: FoodItem) => {
+    playClick(true)
+    cloudPatchDailyLog({ caloriesIn: food.kcal }).then(next => setLog(next))
+    setFoodFreq(bumpFoodFrequency(food.id))
+    setPulseRings(true); setTimeout(() => setPulseRings(false), 800)
+  }, [])
   const handleReset  = useCallback(() => { playClick(); cloudResetDailyLog().then(next => setLog(next)) }, [])
   const toggleLocale = useCallback(() => { playClick(); setLocale(locale === 'cn' ? 'en' : 'cn') }, [locale, setLocale])
 
@@ -679,8 +723,10 @@ export default function ExecutiveDashboard() {
   const exPct    = Math.min((activeLog.exerciseMinutes / 30) * 100, 100)
   const sleepPct = Math.min((activeLog.sleepHours / 8) * 100, 100)
   const insights = runEngine(activeLog, metrics.targetCalories, metrics.bmr, t)
-  const hasAlert = insights.some(i => i.level === 'alert')
-  const mission  = getMission(activeLog, metrics.targetCalories, t)
+  const hasAlert     = insights.some(i => i.level === 'alert')
+  const missionResult = getMission(activeLog, metrics.targetCalories, t)
+  const mission       = missionResult.text
+  const missionCrit   = missionResult.critical
   const dateStr  = new Date().toLocaleDateString(locale==='cn' ? 'zh-CN' : 'en-US', { weekday:'short', month:'short', day:'numeric' })
 
   // Unused locale variable to satisfy TypeScript - locale is used in useLocale and toggleLocale
@@ -701,7 +747,7 @@ export default function ExecutiveDashboard() {
           <div className="min-w-0">
             <div className="text-xs font-black tracking-[0.2em] uppercase" style={{ color:C.calorie, textShadow:`0 0 10px ${C.calorie}66` }}>Nexus Health</div>
             <div className="text-[9px] truncate flex items-center gap-2" style={{ fontFamily:'monospace', color:'#555' }}>
-              {t.missionPrefix} <span style={{ color:hasAlert?'#f87171':C.calorie }}>{mission}</span>
+              {t.missionPrefix} <span className={missionCrit ? 'nexus-critical-glow' : ''} style={{ color:missionCrit?'#f87171':hasAlert?'#f87171':C.calorie }}>{mission}</span>
               {execScore !== null && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black"
                   style={{
@@ -780,7 +826,7 @@ export default function ExecutiveDashboard() {
             <span className="text-[8px] font-black tracking-[0.3em] uppercase" style={{ color:`${C.calorie}66` }}>{t.shareWatermark}</span>
           </div>
           <span className="text-[8px] tracking-wider" style={{ color:'#333' }}>
-            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.6
+            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.7
           </span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -864,6 +910,31 @@ export default function ExecutiveDashboard() {
               <div className="mt-4 pt-3" style={{ borderTop:`1px solid ${C.border}` }}>
                 <CloudSyncLED status={syncStatus} t={t} />
               </div>
+              {/* V1.7: Biological Stability Index */}
+              {stabilityPct !== null && (() => {
+                const stR = 28, stSw = 5, stCirc = 2 * Math.PI * stR
+                const stColor = stabilityPct >= 70 ? C.calorie : stabilityPct >= 40 ? '#fbbf24' : '#f87171'
+                return (
+                  <div className="mt-4 pt-3 flex items-center gap-4" style={{ borderTop:`1px solid ${C.border}` }}>
+                    <svg width={70} height={70} viewBox="0 0 70 70" style={{ transform:'rotate(-90deg)' }}>
+                      <circle cx={35} cy={35} r={stR} fill="none" stroke="#1a1a1a" strokeWidth={stSw} />
+                      <circle cx={35} cy={35} r={stR} fill="none" stroke={stColor} strokeWidth={stSw}
+                        strokeDasharray={stCirc} strokeDashoffset={stCirc * (1 - stabilityPct / 100)}
+                        strokeLinecap="round"
+                        style={{ transition:'stroke-dashoffset 0.8s ease', filter:`drop-shadow(0 0 6px ${stColor})` }} />
+                    </svg>
+                    <div>
+                      <div className="text-[9px] font-bold tracking-[0.2em] uppercase" style={{ color:stColor, fontFamily:'monospace' }}>
+                        {t.stabilityTitle}
+                      </div>
+                      <div className="text-lg font-black tabular-nums" style={{ color:stColor, textShadow:`0 0 8px ${stColor}88` }}>
+                        {stabilityPct}%
+                      </div>
+                      <div className="text-[8px] text-gray-600" style={{ fontFamily:'monospace' }}>{t.stabilityHint}</div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background:C.panel, border:`1px solid ${C.border}` }}>
@@ -889,7 +960,7 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ── Sticky Quick Log ── */}
-      <StickyQuickLog log={log} ghostMode={ghostMode} locale={locale} t={t} onPatch={patch} onReset={handleReset} />
+      <StickyQuickLog log={log} ghostMode={ghostMode} locale={locale} t={t} onPatch={patch} onReset={handleReset} foodFreq={foodFreq} onFoodLog={handleFoodLog} />
 
       {/* ── Squad Status Panel (V1.6) ── */}
       <SquadStatusPanel

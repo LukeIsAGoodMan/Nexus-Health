@@ -126,6 +126,15 @@ body {
   animation: share-shimmer 1.5s ease-in-out infinite;
 }
 
+/* ── Breathing red glow for CRITICAL mission state (V1.7) ── */
+@keyframes critical-glow {
+  0%, 100% { text-shadow: 0 0 6px #f87171, 0 0 12px #f8717155; }
+  50%      { text-shadow: 0 0 14px #f87171, 0 0 28px #f87171aa, 0 0 40px #f8717144; }
+}
+.nexus-critical-glow {
+  animation: critical-glow 1.5s ease-in-out infinite;
+}
+
 /* ── News ticker marquee scroll ── */
 @keyframes ticker-scroll {
   0%   { transform: translateX(0); }

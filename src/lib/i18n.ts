@@ -86,6 +86,12 @@ export interface Messages {
   tickerActiveOps: string
   tickerSystemStable: string
   tickerTopScore: string
+  // V1.7: Adaptive Mission Engine
+  missionCriticalRefuel: string
+  msgCriticalRefuel: string        // {kcal}
+  // V1.7: Biological Stability Index
+  stabilityTitle: string
+  stabilityHint: string
   // Status messages (use {placeholders})
   msgAwaitingInput: string
   msgDeficitHigh: string      // {bal}
@@ -113,7 +119,7 @@ export interface Messages {
 // ─── Dictionaries ─────────────────────────────────────────────────────────────
 export const translations: Record<Locale, Messages> = {
   en: {
-    subtitle:        'Executive Command Center · V1.6',
+    subtitle:        'Executive Command Center · V1.7',
     liveMode:        'LIVE',
     ghostToggle:     'GHOST',
     missionPrefix:   'MISSION:',
@@ -202,6 +208,12 @@ export const translations: Record<Locale, Messages> = {
     tickerActiveOps:       'ACTIVE_OPERATIVES',
     tickerSystemStable:    'ALL_SYSTEMS_NOMINAL',
     tickerTopScore:        'TOP_SCORE',
+    // V1.7: Adaptive Mission Engine
+    missionCriticalRefuel: 'CRITICAL_REFUEL',
+    msgCriticalRefuel:     '> RECOMMENDATION: Intake {kcal} kcal to stabilize metabolism.',
+    // V1.7: Biological Stability Index
+    stabilityTitle:        'Bio Stability',
+    stabilityHint:         '% of days with SYS_EFF > 70% (30d)',
 
     // Status messages
     msgAwaitingInput:      '> AWAITING_INPUT  No calories logged. Begin tracking.',
@@ -228,7 +240,7 @@ export const translations: Record<Locale, Messages> = {
   },
 
   cn: {
-    subtitle:        '执行指挥中心 · V1.6',
+    subtitle:        '执行指挥中心 · V1.7',
     liveMode:        '实时',
     ghostToggle:     '昨日',
     missionPrefix:   '当前任务:',
@@ -317,6 +329,12 @@ export const translations: Record<Locale, Messages> = {
     tickerActiveOps:       '活跃人员',
     tickerSystemStable:    '全部系统正常',
     tickerTopScore:        '最高分',
+    // V1.7: Adaptive Mission Engine
+    missionCriticalRefuel: '紧急补给',
+    msgCriticalRefuel:     '> RECOMMENDATION: 建议摄入 {kcal} kcal 以稳定代谢。',
+    // V1.7: Biological Stability Index
+    stabilityTitle:        '生物稳定性',
+    stabilityHint:         '30天内 SYS_EFF > 70% 的天数占比',
 
     // Status messages (> CODE prefix + tech terms kept in English)
     msgAwaitingInput:      '> AWAITING_INPUT  未记录热量。请开始追踪。',
