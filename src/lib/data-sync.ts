@@ -225,6 +225,44 @@ export async function cloudResetDailyLog(): Promise<DailyLog> {
   return fresh
 }
 
+// ─── Recent logs (for Execution Score) ──────────────────────────────────────
+
+export async function cloudLoadRecentLogs(dayCount: number): Promise<DailyLog[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const uid = getUserId()
+  if (!uid) return []
+
+  const dates: string[] = []
+  for (let i = 0; i < dayCount; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+
+  try {
+    const { data, error } = await supabase()
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', uid)
+      .in('log_date', dates)
+      .order('log_date', { ascending: false })
+
+    if (error || !data) return []
+
+    return data.map((row: Record<string, unknown>) => ({
+      caloriesIn:      row.calories_in as number,
+      caloriesOut:     row.calories_out as number,
+      exerciseMinutes: row.exercise_minutes as number,
+      sleepHours:      row.sleep_hours as number,
+      waterMl:         row.water_ml as number,
+      flushDone:       row.flush_done as boolean,
+    }))
+  } catch {
+    return []
+  }
+}
+
 // ─── Yesterday's log (for Ghost Mode) ───────────────────────────────────────
 
 export async function cloudLoadYesterdayLog(): Promise<DailyLog | null> {

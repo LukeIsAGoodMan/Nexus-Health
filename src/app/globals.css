@@ -125,3 +125,20 @@ body {
   background-size: 200% 100%;
   animation: share-shimmer 1.5s ease-in-out infinite;
 }
+
+/* ── Tactical scanline overlay ── */
+.nexus-scanline::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  mix-blend-mode: multiply;
+}

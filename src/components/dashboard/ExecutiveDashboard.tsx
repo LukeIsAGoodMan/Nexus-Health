@@ -8,16 +8,17 @@ import {
 } from 'recharts'
 import {
   Zap, Activity, Moon, Flame, AlertTriangle, CheckCircle2,
-  Info, RotateCcw, Settings, Droplets, Ghost, Share2, Cloud, CloudOff, Download,
+  Info, RotateCcw, Settings, Droplets, Ghost, Share2, Cloud, CloudOff, Download, Search,
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { type StoredProfile, type DailyLog } from '@/lib/local-store'
 import {
   cloudLoadProfile, cloudLoadDailyLog, cloudPatchDailyLog,
-  cloudResetDailyLog, cloudLoadYesterdayLog,
+  cloudResetDailyLog, cloudLoadYesterdayLog, cloudLoadRecentLogs,
   onSyncChange, type SyncStatus,
 } from '@/lib/data-sync'
-import { WATER_TARGET_ML } from '@/lib/health-engine'
+import { WATER_TARGET_ML, calculateExecutionScore } from '@/lib/health-engine'
+import { searchFood, type FoodItem } from '@/lib/food-db'
 import { useLocale, translations, interp, type Locale } from '@/lib/i18n'
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
@@ -335,20 +336,40 @@ function EnergyTrendChart({ net, targetCalories, ghostMode, simHour, onSimHour, 
 // ─── Sticky Quick-Log bar ─────────────────────────────────────────────────────
 type Tab = 'cal' | 'ex' | 'water' | 'sleep' | 'sys'
 
-function StickyQuickLog({ log, ghostMode, t, onPatch, onReset }: {
-  log:DailyLog; ghostMode:boolean; t: typeof translations['en']
+function StickyQuickLog({ log, ghostMode, locale, t, onPatch, onReset }: {
+  log:DailyLog; ghostMode:boolean; locale:'en'|'cn'; t: typeof translations['en']
   onPatch:(d:Partial<DailyLog>,major?:boolean)=>void; onReset:()=>void
 }) {
   const [tab, setTab] = useState<Tab>('cal')
+  const [foodQuery, setFoodQuery] = useState('')
   const dis = ghostMode
+  const results = foodQuery ? searchFood(foodQuery, locale) : []
 
   const panels: Record<Tab, React.ReactNode> = {
-    cal: <>
-      <LogBtn label="+300 kcal" color={C.calorie}  onClick={() => !dis && onPatch({ caloriesIn:  300 }, true)} />
-      <LogBtn label="+500 kcal" color={C.calorie}  onClick={() => !dis && onPatch({ caloriesIn:  500 }, true)} />
-      <LogBtn label="+800 kcal" color={C.calorie}  onClick={() => !dis && onPatch({ caloriesIn:  800 }, true)} />
-      <LogBtn label="−300 kcal" color="#f87171"    onClick={() => !dis && onPatch({ caloriesIn: -300 })} />
-    </>,
+    cal: <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+      <div className="relative flex-1 min-w-[140px] max-w-[220px]">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-600 pointer-events-none" />
+        <input value={foodQuery} onChange={e => setFoodQuery(e.target.value)}
+          placeholder={t.foodSearchPlaceholder}
+          className="w-full bg-transparent border rounded-lg pl-7 pr-2 py-1.5 text-[11px] text-white placeholder-gray-600 focus:outline-none"
+          style={{ borderColor:`${C.calorie}44`, fontFamily:'monospace' }} />
+      </div>
+      {foodQuery ? (
+        results.length > 0 ? results.map((f: FoodItem) => (
+          <button key={f.id} onClick={() => { if (!dis) { onPatch({ caloriesIn: f.kcal }, true); setFoodQuery('') } }}
+            className="rounded-lg px-2 py-1.5 text-[10px] font-bold tracking-wide transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5"
+            style={{ background:`${C.calorie}12`, border:`1px solid ${C.calorie}44`, color:C.calorie, fontFamily:'monospace' }}>
+            <span>{locale==='cn'?f.nameCn:f.name}</span>
+            <span className="opacity-60">{f.kcal}</span>
+          </button>
+        )) : <span className="text-[10px] text-gray-600" style={{ fontFamily:'monospace' }}>{t.foodSearchEmpty}</span>
+      ) : <>
+        <LogBtn label="+300 kcal" color={C.calorie} onClick={() => !dis && onPatch({ caloriesIn: 300 }, true)} />
+        <LogBtn label="+500 kcal" color={C.calorie} onClick={() => !dis && onPatch({ caloriesIn: 500 }, true)} />
+        <LogBtn label="+800 kcal" color={C.calorie} onClick={() => !dis && onPatch({ caloriesIn: 800 }, true)} />
+        <LogBtn label="−300 kcal" color="#f87171"   onClick={() => !dis && onPatch({ caloriesIn: -300 })} />
+      </>}
+    </div>,
     ex: <>
       <LogBtn label="+15 min"  color={C.exercise} onClick={() => !dis && onPatch({ exerciseMinutes:15,  caloriesOut:105 }, true)} />
       <LogBtn label="+30 min"  color={C.exercise} onClick={() => !dis && onPatch({ exerciseMinutes:30,  caloriesOut:210 }, true)} />
@@ -426,6 +447,7 @@ export default function ExecutiveDashboard() {
   const [hydrated,        setHydrated]        = useState(false)
   const [syncStatus,      setSyncStatus]      = useState<SyncStatus>('idle')
   const [shareGenerating, setShareGenerating] = useState(false)
+  const [execScore,       setExecScore]       = useState<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -439,6 +461,11 @@ export default function ExecutiveDashboard() {
       // Pre-fetch yesterday's log for Ghost Mode
       const yd = await cloudLoadYesterdayLog()
       if (yd) { setYesterdayLog(yd); setHasYesterday(true) }
+      // Calculate execution score from last 3 days
+      const recent = await cloudLoadRecentLogs(3)
+      if (recent.length > 0) {
+        setExecScore(calculateExecutionScore(recent, profile.metrics.targetCalories))
+      }
     }
     init()
     const unsub = onSyncChange(setSyncStatus)
@@ -517,7 +544,7 @@ export default function ExecutiveDashboard() {
   const _locale: Locale = locale
 
   return (
-    <div className="min-h-screen text-white pb-36" style={{ background:'#050508' }}>
+    <div className="min-h-screen text-white pb-36 nexus-scanline" style={{ background:'#050508' }}>
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3" style={{ background:'#0a0d14', borderBottom:`1px solid ${C.border}` }}>
@@ -527,8 +554,19 @@ export default function ExecutiveDashboard() {
           </div>
           <div className="min-w-0">
             <div className="text-xs font-black tracking-[0.2em] uppercase" style={{ color:C.calorie, textShadow:`0 0 10px ${C.calorie}66` }}>Nexus Health</div>
-            <div className="text-[9px] truncate" style={{ fontFamily:'monospace', color:'#555' }}>
+            <div className="text-[9px] truncate flex items-center gap-2" style={{ fontFamily:'monospace', color:'#555' }}>
               {t.missionPrefix} <span style={{ color:hasAlert?'#f87171':C.calorie }}>{mission}</span>
+              {execScore !== null && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black"
+                  style={{
+                    background: execScore >= 70 ? `${C.calorie}18` : execScore >= 40 ? '#fbbf2418' : '#f8717118',
+                    color: execScore >= 70 ? C.calorie : execScore >= 40 ? '#fbbf24' : '#f87171',
+                    border: `1px solid ${execScore >= 70 ? C.calorie : execScore >= 40 ? '#fbbf24' : '#f87171'}33`,
+                    textShadow: `0 0 6px ${execScore >= 70 ? C.calorie : execScore >= 40 ? '#fbbf24' : '#f87171'}88`,
+                  }}>
+                  {t.execScoreLabel} {execScore}%
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -589,7 +627,7 @@ export default function ExecutiveDashboard() {
             <span className="text-[8px] font-black tracking-[0.3em] uppercase" style={{ color:`${C.calorie}66` }}>{t.shareWatermark}</span>
           </div>
           <span className="text-[8px] tracking-wider" style={{ color:'#333' }}>
-            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.4
+            {new Date().toLocaleString(locale==='cn'?'zh-CN':'en-US')} · V1.5
           </span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -695,7 +733,7 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ── Sticky Quick Log ── */}
-      <StickyQuickLog log={log} ghostMode={ghostMode} t={t} onPatch={patch} onReset={handleReset} />
+      <StickyQuickLog log={log} ghostMode={ghostMode} locale={locale} t={t} onPatch={patch} onReset={handleReset} />
     </div>
   )
 }

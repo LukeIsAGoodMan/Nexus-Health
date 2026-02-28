@@ -60,3 +60,59 @@ export function calculateHealthMetrics(profile: UserProfile): HealthMetrics {
   const targetCalories = tdee + GOAL_CALORIE_DELTA[profile.goal]
   return { bmr, tdee, targetCalories }
 }
+
+// ─── Execution Score (V1.5) ──────────────────────────────────────────────────
+// Measures system efficiency based on the last N days of daily logs.
+// Score 0–100:  Calories on target = +pts, Hydration met = +pts,
+//               Exercise met = +pts, Sleep optimal = +pts,
+//               Dehydration / surplus / deficit = −pts
+
+export interface DaySnapshot {
+  caloriesIn: number
+  caloriesOut: number
+  exerciseMinutes: number
+  sleepHours: number
+  waterMl: number
+}
+
+export function calculateExecutionScore(
+  days: DaySnapshot[],
+  targetCalories: number,
+): number {
+  if (days.length === 0) return 0
+
+  let totalPoints = 0
+
+  for (const d of days) {
+    let dayScore = 0
+    const net = d.caloriesIn - d.caloriesOut
+    const diff = Math.abs(targetCalories - net)
+
+    // Calorie accuracy (40 pts max per day)
+    if (diff <= 100)      dayScore += 40
+    else if (diff <= 300) dayScore += 30
+    else if (diff <= 500) dayScore += 15
+    // else 0
+
+    // Hydration (20 pts max)
+    if (d.waterMl >= WATER_TARGET_ML)      dayScore += 20
+    else if (d.waterMl >= 1500)            dayScore += 12
+    else if (d.waterMl >= 1000)            dayScore += 5
+    else                                   dayScore -= 5  // dehydration penalty
+
+    // Exercise (20 pts max)
+    if (d.exerciseMinutes >= 30)           dayScore += 20
+    else if (d.exerciseMinutes >= 15)      dayScore += 10
+    // else 0
+
+    // Sleep (20 pts max)
+    if (d.sleepHours >= 7 && d.sleepHours <= 9) dayScore += 20
+    else if (d.sleepHours >= 6)                  dayScore += 10
+    else if (d.sleepHours > 0)                   dayScore += 3
+    // else 0 (not logged)
+
+    totalPoints += Math.max(0, Math.min(100, dayScore))
+  }
+
+  return Math.round(totalPoints / days.length)
+}

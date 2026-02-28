@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Activity, Target, ChevronRight, User, Scale, Ruler, Calendar, Dumbbell, Zap } from 'lucide-react'
+import { Activity, Target, ChevronRight, User, Scale, Ruler, Calendar, Dumbbell, Zap, Copy, Check } from 'lucide-react'
 import { calculateHealthMetrics, type UserProfile, type Gender, type Goal, type ActivityLevel } from '@/lib/health-engine'
-import { cloudSaveProfile } from '@/lib/data-sync'
+import { cloudSaveProfile, getUserId } from '@/lib/data-sync'
 
 interface FormState {
   heightCm: string
@@ -35,6 +35,10 @@ export default function ProfileSetup() {
     heightCm: '', weightKg: '', age: '', gender: '', goal: '', activityLevel: '',
   })
   const [launching, setLaunching] = useState(false)
+  const [uid, setUid] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => { setUid(getUserId()) }, [])
 
   const isComplete =
     form.heightCm && form.weightKg && form.age &&
@@ -186,6 +190,21 @@ export default function ProfileSetup() {
               ))}
             </div>
           </div>
+
+          {/* Profile ID */}
+          {uid && (
+            <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+              <div className="text-xs text-gray-500 mb-1.5" style={{ fontFamily: 'monospace' }}>Profile ID</div>
+              <div className="flex items-center gap-2">
+                <code className="text-xs text-emerald-400 bg-gray-800 rounded px-2 py-1 flex-1 overflow-hidden text-ellipsis" style={{ fontFamily: 'monospace' }}>{uid}</code>
+                <button type="button" onClick={() => { navigator.clipboard.writeText(uid); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-emerald-400 transition-colors flex-shrink-0">
+                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <div className="text-[10px] text-gray-600 mt-1.5">Share this ID with your PM to identify your data in Supabase.</div>
+            </div>
+          )}
 
           {/* Submit */}
           <button

@@ -65,6 +65,14 @@ export interface Messages {
   // Ghost fallback
   ghostNoData: string
   ghostNoDataHint: string
+  // Food search
+  foodSearchPlaceholder: string
+  foodSearchEmpty: string
+  // Execution score
+  execScoreLabel: string
+  // Profile ID
+  profileIdLabel: string
+  profileIdCopied: string
   // Status messages (use {placeholders})
   msgAwaitingInput: string
   msgDeficitHigh: string      // {bal}
@@ -160,6 +168,14 @@ export const translations: Record<Locale, Messages> = {
     // Ghost fallback
     ghostNoData:     'NO INTEL FOR YESTERDAY',
     ghostNoDataHint: 'Start logging today — tomorrow this will show your data.',
+    // Food search
+    foodSearchPlaceholder: 'Search food...',
+    foodSearchEmpty:       'No match. Use +kcal buttons.',
+    // Execution score
+    execScoreLabel:        'SYS_EFF',
+    // Profile ID
+    profileIdLabel:        'Profile ID',
+    profileIdCopied:       'Copied!',
 
     // Status messages
     msgAwaitingInput:      '> AWAITING_INPUT  No calories logged. Begin tracking.',
@@ -254,6 +270,14 @@ export const translations: Record<Locale, Messages> = {
     // Ghost fallback
     ghostNoData:     '昨日无数据',
     ghostNoDataHint: '今天开始记录，明天这里就能看到你的数据。',
+    // Food search
+    foodSearchPlaceholder: '搜索食物...',
+    foodSearchEmpty:       '无匹配结果，请使用 +kcal 按钮。',
+    // Execution score
+    execScoreLabel:        '系统效率',
+    // Profile ID
+    profileIdLabel:        '用户 ID',
+    profileIdCopied:       '已复制!',
 
     // Status messages (> CODE prefix + tech terms kept in English)
     msgAwaitingInput:      '> AWAITING_INPUT  未记录热量。请开始追踪。',
